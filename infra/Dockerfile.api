@@ -3,18 +3,21 @@ WORKDIR /app
 
 RUN apk add --no-cache openssl ca-certificates
 
-# کپی کردن فایل‌های پکیج و لاک‌فایل برای کِش لایه‌ها
+# کپی کردن ساختار پکیج‌ها و کل کدهای مونو-ریپو برای تحلیل درست پکیج‌لوک
 COPY package.json package-lock.json turbo.json ./
 COPY apps/api-server/package.json apps/api-server/package.json
-COPY apps/web/package.json apps/web/package.json
 COPY packages/database/package.json packages/database/package.json
 
-# تغییر اصلی: استفاده از npm install به همراه فلگ نادیده گرفتن هم‌پایه پکیج‌ها
+# کپی کردن کدهای پکیج‌های داخلی قبل از نصب (حیاتی برای توربو)
+COPY packages/ ./packages/
+
+# نصب پکیج‌ها با اینترنت آزاد گیت‌هاب
 RUN npm install --include=dev --legacy-peer-deps
 
-COPY packages/database/ packages/database/
+# تولید کلاینت دیتابیس
 RUN npm run db:generate
 
+# کپی کردن کدهای اصلی سرور
 COPY apps/api-server/ apps/api-server/
 
 EXPOSE 4000
