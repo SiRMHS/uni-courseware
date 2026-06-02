@@ -59,17 +59,17 @@ jobs:
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          REPO_LOWER: ${{ env.REPO_LOWER }}
+          IMAGE_TAG: ${{ github.sha }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           envs: REPO_LOWER,IMAGE_TAG
-        env:
-          REPO_LOWER: ${{ env.REPO_LOWER }}
-          IMAGE_TAG: ${{ github.sha }}
-        script: |
-          set -e
-          export GITHUB_REPOSITORY="${REPO_LOWER}"
-          export IMAGE_TAG="${IMAGE_TAG}"
-          cd ~/uni
-          bash scripts/deploy.sh
+          script: |
+            set -e
+            export GITHUB_REPOSITORY="${REPO_LOWER}"
+            export IMAGE_TAG="${IMAGE_TAG}"
+            cd ~/uni
+            bash scripts/deploy.sh
