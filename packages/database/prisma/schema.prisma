@@ -1,0 +1,312 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  PROFESSOR
+  STUDENT
+}
+
+enum ModuleType {
+  FACULTY_COURSE
+  LIBRARY_BOOK
+  TECHNICAL_DATASET
+}
+
+model DynamicModule {
+  id          String        @id @default(uuid())
+  type        ModuleType
+  name        String
+  systemKey   String        @unique
+  ftpBaseRoot String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  items       ModuleItem[]
+}
+
+model ModuleItem {
+  id              String         @id @default(uuid())
+  moduleId        String
+  module          DynamicModule  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  parentId        String?
+  parent          ModuleItem?    @relation("Hierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children        ModuleItem[]   @relation("Hierarchy")
+  title           String
+  slug            String
+  relativeFtpPath String
+  metaAttributes  Json?
+  createdAt       DateTime       @default(now())
+
+  @@unique([moduleId, slug])
+  @@index([moduleId, parentId])
+}
+
+model FolderConfig {
+  id         String   @id @default(uuid())
+  targetPath String   @unique
+  lmsMode    Boolean  @default(false)
+  updatedAt  DateTime @updatedAt
+}
+
+model Faculty {
+  id          String       @id @default(uuid())
+  name        String
+  slug        String       @unique
+  departments Department[]
+  books       Book[]
+  tickets     Ticket[]
+  users       User[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  title     String
+  body      String?
+  link      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Ticket {
+  id           String          @id @default(uuid())
+  title        String
+  body         String
+  status       String          @default("open")
+  departmentId String?
+  department   Department?     @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  facultyId    String?
+  faculty      Faculty?        @relation(fields: [facultyId], references: [id], onDelete: SetNull)
+  userId       String?
+  user         User?           @relation("UserTickets", fields: [userId], references: [id], onDelete: SetNull)
+  assignedToId String?
+  assignedTo   User?           @relation("AssignedTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  messages     TicketMessage[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+}
+
+model TicketMessage {
+  id        String   @id @default(uuid())
+  body      String
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Department {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String
+  facultyId  String
+  faculty   Faculty  @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  courses   Course[]
+  books     Book[]
+  tickets   Ticket[]
+  users     User[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([facultyId, slug])
+}
+
+model User {
+  id              String           @id @default(uuid())
+  name            String
+  username        String?          @unique
+  email           String?          @unique
+  password        String
+  role            Role             @default(STUDENT)
+  studentId       String?
+  avatar          String?
+  badge           String?
+  tokenVersion    Int                @default(0)
+  theme           String           @default("default-light")
+  facultyId       String?
+  faculty         Faculty?         @relation(fields: [facultyId], references: [id], onDelete: SetNull)
+  departmentId    String?
+  department      Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  createdCourses  Course[]         @relation("CreatedCourses")
+  updatedCourses  Course[]         @relation("UpdatedCourses")
+  createdBooks    Book[]           @relation("CreatedBooks")
+  updatedBooks    Book[]           @relation("UpdatedBooks")
+  files           FileMedia[]
+  tickets         Ticket[]         @relation("UserTickets")
+  assignedTickets Ticket[]         @relation("AssignedTickets")
+  ticketMessages  TicketMessage[]
+  events          CalendarEvent[]
+  activities      UserActivity[]
+  teamMemberships TeamMember[]
+  createdTeams    Team[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model Team {
+  id          String       @id @default(uuid())
+  name        String
+  description String?
+  story       String?
+  image       String?
+  createdById String
+  createdBy   User         @relation(fields: [createdById], references: [id])
+  members     TeamMember[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model TeamMember {
+  id        String   @id @default(uuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String   @default("member")
+  createdAt DateTime @default(now())
+
+  @@unique([teamId, userId])
+}
+
+model Course {
+  id            String     @id @default(uuid())
+  title         String
+  slug          String     @unique
+  description   String?
+  thumbnail     String?
+  professorName String?
+  ftpPath       String?
+  departmentId  String
+  department    Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  createdById   String?
+  createdBy     User?      @relation("CreatedCourses", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById   String?
+  updatedBy     User?      @relation("UpdatedCourses", fields: [updatedById], references: [id], onDelete: SetNull)
+  books         Book[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  books     Book[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PublishedFolder {
+  id         String   @id @default(uuid())
+  sitePath   String   @unique
+  remotePath String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model FolderSetting {
+  id         String   @id @default(uuid())
+  folderPath String   @unique
+  lmsMode    Boolean  @default(false)
+  updatedAt  DateTime @updatedAt
+}
+
+model DisplayName {
+  id          String   @id @default(uuid())
+  entryPath   String   @unique
+  displayName String
+  description String?
+  poster      String?
+  updatedAt   DateTime @updatedAt
+}
+
+model Announcement {
+  id        String   @id @default(uuid())
+  title     String
+  body      String?
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserActivity {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String
+  target    String?
+  targetUrl String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model CalendarEvent {
+  id        String   @id @default(uuid())
+  title     String
+  date      String
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([date])
+}
+
+model FileMedia {
+  id           String    @id @default(uuid())
+  filename     String
+  originalName String
+  mimeType     String?
+  size         Int       @default(0)
+  ftpPath      String    @unique
+  publicUrl    String?
+  userId       String?
+  user         User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  folder       String    @default("/uploads")
+  isPublic     Boolean   @default(false)
+  metadata     Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([folder])
+  @@index([createdAt])
+}
+
+model Book {
+  id            String     @id @default(uuid())
+  title         String
+  slug          String     @unique
+  author        String?
+  description   String?
+  image         String?
+  fileUrl       String?
+  ftpPath       String?
+  categoryId    String?
+  category      Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  facultyId     String?
+  faculty       Faculty?   @relation(fields: [facultyId], references: [id], onDelete: SetNull)
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  courseId      String?
+  course        Course?    @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  createdById   String?
+  createdBy     User?      @relation("CreatedBooks", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById   String?
+  updatedBy     User?      @relation("UpdatedBooks", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}

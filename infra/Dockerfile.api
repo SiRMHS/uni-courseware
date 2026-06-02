@@ -1,0 +1,21 @@
+FROM node:20-alpine AS base
+WORKDIR /app
+
+RUN apk add --no-cache openssl ca-certificates
+
+COPY package.json package-lock.json turbo.json ./
+
+COPY apps/api-server/package.json apps/api-server/package.json
+COPY apps/web/package.json apps/web/package.json
+COPY packages/database/package.json packages/database/package.json
+
+RUN npm ci
+
+COPY packages/database/ packages/database/
+RUN npm run db:generate
+
+COPY apps/api-server/ apps/api-server/
+
+EXPOSE 4000
+
+CMD ["node", "apps/api-server/src/index.js"]

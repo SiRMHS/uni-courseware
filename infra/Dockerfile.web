@@ -1,0 +1,36 @@
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+RUN apk add --no-cache openssl ca-certificates
+
+COPY package.json package-lock.json turbo.json ./
+
+COPY apps/api-server/package.json apps/api-server/package.json
+COPY apps/web/package.json apps/web/package.json
+COPY packages/database/package.json packages/database/package.json
+
+RUN npm ci
+
+COPY packages/database/ packages/database/
+RUN npm run db:generate
+
+COPY apps/web/ apps/web/
+
+ENV NEXT_PUBLIC_API_URL=http://api:4000
+RUN npx turbo run build --filter=@uni/web
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+RUN apk add --no-cache openssl ca-certificates
+
+COPY --from=builder /app/apps/web/.next apps/web/.next
+COPY --from=builder /app/apps/web/public apps/web/public
+COPY --from=builder /app/apps/web/package.json apps/web/
+COPY --from=builder /app/apps/web/next.config.js apps/web/
+COPY --from=builder /app/node_modules node_modules
+
+EXPOSE 3000
+
+WORKDIR /app/apps/web
+CMD ["npx", "next", "start", "--port", "3000"]

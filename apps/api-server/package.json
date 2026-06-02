@@ -1,0 +1,22 @@
+{
+  "name": "@uni/api-server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "build": "echo 'api-server: no build step'"
+  },
+  "dependencies": {
+    "@uni/database": "*",
+    "basic-ftp": "^5.0.5",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "mime-types": "^3.0.1",
+    "multer": "^2.1.1"
+  }
+}

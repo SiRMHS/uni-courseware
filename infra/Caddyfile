@@ -1,0 +1,28 @@
+# Caddy v2 reverse proxy config
+# Replace uni.xiroone.ir with your actual domain
+
+uni.xiroone.ir {
+    # Auto HTTPS via Let's Encrypt (requires public DNS records)
+    tls your-email@example.com
+
+    # Proxy Next.js app
+    reverse_proxy web:3000
+
+    # Security headers
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    }
+
+    # Gzip compression
+    encode gzip
+
+    # Logs
+    log {
+        output file /data/logs/access.log
+        format json
+    }
+}
