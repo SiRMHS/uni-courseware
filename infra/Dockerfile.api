@@ -12,7 +12,7 @@ COPY packages/database/package.json packages/database/package.json
 COPY packages/ ./packages/
 
 # نصب پکیج‌ها با اینترنت آزاد گیت‌هاب
-RUN npm install --include=dev --legacy-peer-deps
+RUN npm install --include=dev --legacy-peer-deps --force
 
 # تولید کلاینت دیتابیس
 RUN npm run db:generate
