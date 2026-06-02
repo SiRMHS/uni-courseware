@@ -3,23 +3,25 @@ WORKDIR /app
 
 RUN apk add --no-cache openssl ca-certificates
 
-# کپی کردن ساختار پکیج‌ها و کل کدهای مونو-ریپو
+# ۱. کپی کردن فایل‌های اصلی مونو-ریپو
 COPY package.json package-lock.json turbo.json ./
-COPY apps/api-server/package.json apps/api-server/package.json
-COPY apps/web/package.json apps/web/package.json
-COPY packages/database/package.json packages/database/package.json
 
-# کپی کردن کدهای پکیج‌های داخلی قبل از نصب (حیاتی برای توربو)
+# ۲. کپی کردن پکیج‌جیسون‌های تمام پوشه‌ها به صورت مجزا (حیاتی برای تحلیل ورک‌اسپیس)
+COPY apps/api-server/package.json ./apps/api-server/package.json
+COPY apps/web/package.json ./apps/web/package.json
+COPY packages/database/package.json ./packages/database/package.json
+
+# ۳. کپی کردن پکیج‌های مشترک داخلی
 COPY packages/ ./packages/
 
-# نصب پکیج‌ها با اینترنت آزاد گیت‌هاب
+# ۴. نصب پکیج‌ها با اینترنت آزاد گیت‌هاب
 RUN npm install --include=dev --legacy-peer-deps
 
-# تولید کلاینت دیتابیس
+# ۵. تولید کلاینت دیتابیس
 RUN npm run db:generate
 
-# کپی کردن کدهای وب‌اپلیکیشن
-COPY apps/web/ apps/web/
+# ۶. کپی کردن کدهای اصلی وب‌اپلیکیشن
+COPY apps/web/ ./apps/web/
 
 ENV NEXT_PUBLIC_API_URL=http://api:4000
 RUN npx turbo run build --filter=@uni/web
@@ -29,11 +31,11 @@ WORKDIR /app
 
 RUN apk add --no-cache openssl ca-certificates
 
-COPY --from=builder /app/apps/web/.next apps/web/.next
-COPY --from=builder /app/apps/web/public apps/web/public
-COPY --from=builder /app/apps/web/package.json apps/web/
-COPY --from=builder /app/apps/web/next.config.js apps/web/
-COPY --from=builder /app/node_modules node_modules
+COPY --from=builder /app/apps/web/.next ./apps/web/.next
+COPY --from=builder /app/apps/web/public ./apps/web/public
+COPY --from=builder /app/apps/web/package.json ./apps/web/package.json
+COPY --from=builder /app/apps/web/next.config.js ./apps/web/next.config.js
+COPY --from=builder /app/node_modules ./node_modules
 
 EXPOSE 3000
 WORKDIR /app/apps/web
