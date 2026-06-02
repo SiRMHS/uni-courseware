@@ -1,4 +1,4 @@
-name: Build and Push
+name: Build and Push Web Only
 
 on:
   push:
@@ -32,17 +32,6 @@ jobs:
       - name: Downcase repository name
         run: |
           echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
-
-      - name: Build and push API server
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: infra/Dockerfile.api
-          push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/api-server:latest
 
       - name: Build and push Web app
         uses: docker/build-push-action@v6

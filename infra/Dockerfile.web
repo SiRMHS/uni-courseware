@@ -1,3 +1,6 @@
+# ========================================================
+# Stage 1: Builder
+# ========================================================
 FROM node:20-alpine AS builder
 WORKDIR /app
 
@@ -6,7 +9,7 @@ RUN apk add --no-cache openssl ca-certificates
 # ۱. کپی کردن فایل‌های اصلی مونو-ریپو
 COPY package.json package-lock.json turbo.json ./
 
-# ۲. کپی کردن پکیج‌جیسون‌های تمام پوشه‌ها به صورت مجزا (حیاتی برای تحلیل ورک‌اسپیس)
+# ۲. کپی کردن پکیج‌جیسون‌های تمام پوشه‌ها به صورت مجزا برای تحلیل درست مونو-ریپو
 COPY apps/api-server/package.json ./apps/api-server/package.json
 COPY apps/web/package.json ./apps/web/package.json
 COPY packages/database/package.json ./packages/database/package.json
@@ -14,29 +17,41 @@ COPY packages/database/package.json ./packages/database/package.json
 # ۳. کپی کردن پکیج‌های مشترک داخلی
 COPY packages/ ./packages/
 
-# ۴. نصب پکیج‌ها با اینترنت آزاد گیت‌هاب
-RUN npm install --include=dev --legacy-peer-deps --force
+# ۴. نصب پکیج‌ها با اینترنت آزاد گیت‌هاب (استفاده از force برای پکیج‌های ناهمخوان سیستم‌عامل)
+RUN npm config set legacy-peer-deps true
+RUN npm install --include=dev --force --verbose
 
-# ۵. تولید کلاینت دیتابیس
+# ۵. تولید کلاینت دیتابیس (Prisma)
 RUN npm run db:generate
 
-# ۶. کپی کردن کدهای اصلی وب‌اپلیکیشن
+# ۶. کپی کردن کدهای اصلی وب‌اپلیکیشن و بیلد فرانت‌آند
 COPY apps/web/ ./apps/web/
 
 ENV NEXT_PUBLIC_API_URL=http://api:4000
 RUN npx turbo run build --filter=@uni/web
 
+# ========================================================
+# Stage 2: Runner (کاملاً اصلاح‌شده و مستقل از اینترنت)
+# ========================================================
 FROM node:20-alpine AS runner
 WORKDIR /app
 
 RUN apk add --no-cache openssl ca-certificates
 
-COPY --from=builder /app/apps/web/.next ./apps/web/.next
-COPY --from=builder /app/apps/web/public ./apps/web/public
-COPY --from=builder /app/apps/web/package.json ./apps/web/package.json
-COPY --from=builder /app/apps/web/next.config.js ./apps/web/next.config.js
+# ۱. کپی کردن کامل ماژول‌ها و فایل‌های تنظیمات ریشه مونو-ریپو
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+
+# ۲. کپی کردن کامل پوشه وب‌اپلیکیشن (شامل فایل‌های کامپایل‌شده .next، پابلیک و باینری‌های محلی)
+COPY --from=builder /app/apps/web ./apps/web
+
+# ۳. کپی کردن کامل پکیج دیتابیس برای دسترسی فرانت‌آند به مدل‌ها در زمان اجرا
+COPY --from=builder /app/packages/database ./packages/database
 
 EXPOSE 3000
+
+# ۴. تغییر پوشه کاری به محل اجرای وب‌اپلیکیشن
 WORKDIR /app/apps/web
+
+# ۵. اجرای مستقیم و آفلاین نکست‌جی‌اس بدون تلاش برای دانلود پکیج‌ها
 CMD ["npx", "next", "start", "--port", "3000"]
