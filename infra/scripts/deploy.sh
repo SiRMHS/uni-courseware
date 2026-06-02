@@ -12,48 +12,58 @@ die() { log "FATAL: $*"; exit 1; }
 
 cd ~/uni
 
-# Load env vars from .env.prod (for DB_PASSWORD etc.)
-export $(grep -v '^\s*#' .env.prod | xargs)
+# بارگذاری متغیرهای محیطی از .env.prod
+if [ -f .env.prod ]; then
+  export $(grep -v '^\s*#' .env.prod | xargs)
+else
+  die ".env.prod file not found!"
+fi
 
-REPO="${GITHUB_REPOSITORY:-uni-courseware}"
+# دریافت متغیرها از گیت‌هاب اکشنز (تبدیل به حروف کوچک)
+REPO="${GITHUB_REPOSITORY}"
 TAG="${IMAGE_TAG:-latest}"
+COMPOSE_FILE="infra/docker-compose.prod.yml" # مسیر دقیق فایل کمپوز شما
 
 log "Deploying $REPO @ $TAG"
 
-# 1. Pull new images
+# ۱. دانلود ایمیج‌های جدید از ریجستری گیت‌هاب
 log "Pulling images..."
-GITHUB_REPOSITORY="$REPO" IMAGE_TAG="$TAG" docker compose -f docker-compose.yml pull
+GITHUB_REPOSITORY="$REPO" IMAGE_TAG="$TAG" docker-compose -f $COMPOSE_FILE pull
 
-# 2. Run database migrations
+# ۲. اجرای خودکار مایگریشن‌های پریسما قبل از بالا آمدن نسخه جدید
 log "Running database migrations..."
-docker compose -f docker-compose.yml run --rm -T api sh -c "cd packages/database && npx prisma migrate deploy" || die "Migration failed"
+# با استفاده از --ignore-scripts در بیلد، کلاینت اینجا به صورت لوکال ساخته شده و مهاجرت دیتابیس بدون اینترنت انجام می‌شود
+GITHUB_REPOSITORY="$REPO" IMAGE_TAG="$TAG" docker-compose -f $COMPOSE_FILE run --rm -T api sh -c "npx prisma migrate deploy" || die "Migration failed"
 
-# 3. Start services
+# ۳. استارت زدن سرویس‌ها با کانتینرهای جدید
 log "Starting services..."
-GITHUB_REPOSITORY="$REPO" IMAGE_TAG="$TAG" docker compose -f docker-compose.yml up -d
+GITHUB_REPOSITORY="$REPO" IMAGE_TAG="$TAG" docker-compose -f $COMPOSE_FILE up -d --remove-orphans
 
-# 4. Health check
+# ۴. بررسی سلامت (Health Check) کانتینر API
 log "Running health check..."
-sleep 8
+sleep 12 # افزایش زمان برای لود شدن کامل اکسپرس و پریسما
 
-if docker compose -f docker-compose.yml ps api | grep -q "healthy"; then
-  log "API health check passed"
+if docker-compose -f $COMPOSE_FILE ps api | grep -q "healthy"; then
+  log "API health check passed! Deployment completely successful."
+  
+  # پاک کردن لایه‌ها و ایمیج‌های قدیمی برای جلوگیری از پر شدن هارد سرور
+  log "Cleaning up old images..."
+  docker image prune -f
 else
   log "Health check failed — rolling back to previous version..."
-  docker compose -f docker-compose.yml down
-
-  # Rollback: re-tag previous as latest (previous is the tag before this deploy)
-  # This works if the previous tag is still available
-  PREV_TAG=$(docker images --format '{{.Tag}}' "ghcr.io/$REPO/api-server" | grep -v latest | sort -r | sed -n '2p')
+  
+  # پیدا کردن تگ قبلی موجود روی سرور برای رول‌بک
+  PREV_TAG=$(docker images --format '{{.Tag}}' "ghcr.io/$REPO/api-server" | grep -v latest | grep -v "$TAG" | sort -r | head -n 1)
+  
   if [ -n "$PREV_TAG" ]; then
-    log "Rolling back to $PREV_TAG..."
-    GITHUB_REPOSITORY="$REPO" IMAGE_TAG="$PREV_TAG" docker compose -f docker-compose.yml up -d
+    log "Rolling back to version: $PREV_TAG..."
+    GITHUB_REPOSITORY="$REPO" IMAGE_TAG="$PREV_TAG" docker-compose -f $COMPOSE_FILE up -d
     sleep 8
-    docker compose -f docker-compose.yml ps api | grep -q "healthy" || die "Rollback also failed!"
+    docker-compose -f $COMPOSE_FILE ps api | grep -q "healthy" || die "Critical: Rollback also failed! Manual intervention required."
     log "Rollback successful to $PREV_TAG"
   else
-    die "No previous image found for rollback — manual intervention required"
+    die "No previous image found for rollback — manual intervention required!"
   fi
 fi
 
-log "Deployment complete!"
+log "Deployment process finished!"
