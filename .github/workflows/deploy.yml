@@ -1,4 +1,4 @@
-name: Build and Push Web Only
+name: Build and Push Web and API
 
 on:
   push:
@@ -28,11 +28,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # تبدیل نام ریپازیتوری به حروف کاملاً کوچک برای داکر
+      # تبدیل نام ریپازیتوری به حروف کاملاً کوچک برای استاندارد داکر
       - name: Downcase repository name
         run: |
           echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
 
+      # ========================================================
+      # 1. بیلد و آپلود پکیج فرانت‌آند (Web)
+      # ========================================================
       - name: Build and push Web app
         uses: docker/build-push-action@v6
         with:
@@ -42,4 +45,18 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/web:1.2
+            ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/web:2.3
+
+      # ========================================================
+      # 2. 👈 بیلد و آپلود پکیج جدید بک‌آند (API Server)
+      # ========================================================
+      - name: Build and push API Server
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/Dockerfile.api # مطمئن شو نام داکرفایل بک‌آندت دقیقاً همین باشد
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/api-server:2.3

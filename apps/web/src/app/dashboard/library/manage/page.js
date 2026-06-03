@@ -9,6 +9,7 @@ import { fetchBooks, deleteBook } from "@/lib/api";
 import { Plus, Pencil, Trash2, Search, BookOpen, User as UserIcon, BookMarked, Tags } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { RequirePermission } from "@/components/RequirePermission";
 
 export default function ManageLibraryPage() {
   const [books, setBooks] = useState([]);
@@ -49,6 +50,7 @@ export default function ManageLibraryPage() {
   );
 
   return (
+    <RequirePermission permissions={["books.create", "books.edit"]}>
     <div className="space-y-6">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -145,5 +147,6 @@ export default function ManageLibraryPage() {
         </div>
       )}
     </div>
+    </RequirePermission>
   );
 }

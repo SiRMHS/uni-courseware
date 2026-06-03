@@ -39,3 +39,47 @@ export function requireRole(...roles) {
     next();
   };
 }
+
+export function requirePermission(permissionKey) {
+  return async (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "احراز هویت نشده" });
+    }
+    try {
+      const rolePerm = await prisma.rolePermission.findFirst({
+        where: {
+          role: req.user.role,
+          permission: { key: permissionKey },
+        },
+      });
+      if (!rolePerm) {
+        return res.status(403).json({ error: "دسترسی غیرمجاز" });
+      }
+      next();
+    } catch {
+      return res.status(500).json({ error: "خطا در بررسی دسترسی" });
+    }
+  };
+}
+
+export function requireAnyPermission(...permissionKeys) {
+  return async (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "احراز هویت نشده" });
+    }
+    try {
+      const rolePerm = await prisma.rolePermission.findFirst({
+        where: {
+          role: req.user.role,
+          permission: { key: { in: permissionKeys } },
+        },
+      });
+      if (!rolePerm) {
+        return res.status(403).json({ error: "دسترسی غیرمجاز" });
+      }
+      next();
+    } catch {
+      return res.status(500).json({ error: "خطا در بررسی دسترسی" });
+    }
+  };
+}

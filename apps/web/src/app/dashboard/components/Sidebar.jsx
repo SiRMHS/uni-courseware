@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
+import { usePermissions } from "@/lib/usePermissions";
 import {
   Archive,
   BarChart3,
@@ -33,6 +34,7 @@ import {
   Plus,
   Send,
   Settings,
+  Shield,
   Sun,
   Trash2,
   Users,
@@ -108,9 +110,6 @@ export function Sidebar({ collapsed = false, onToggleCollapse }) {
     <>
       <Sheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
         <SheetTrigger asChild>
-          {/* <Button variant="outline" size="icon" className="fixed left-4 top-4 z-50 lg:hidden shadow-lg shadow-black/10">
-            <Menu className="h-5 w-5" />
-          </Button> */}
         </SheetTrigger>
         <SheetContent side="right" className="w-[88vw] max-w-sm gap-0 p-0">
           <SidebarContent pathname={pathname} mobile />
@@ -133,7 +132,28 @@ export function Sidebar({ collapsed = false, onToggleCollapse }) {
 function SidebarContent({ pathname, mobile = false, collapsed = false, onToggleCollapse }) {
   const rootRef = useRef(null);
   const { user, logout } = useAuth();
-  const canManage = user?.role === "SUPER_ADMIN" || user?.role === "ADMIN" || user?.role === "PROFESSOR";
+  const { perms } = usePermissions();
+
+  const hasAny = (...prefixes) => perms.some((p) => prefixes.some((pre) => p.startsWith(pre)));
+
+  const showCoursesManage = hasAny("courses.create", "courses.edit");
+  const showFaculties = hasAny("faculties.");
+  const showDepartments = hasAny("departments.");
+  const showBooksManage = hasAny("books.");
+  const showCategories = hasAny("categories.");
+  const showUsers = hasAny("users.");
+  const showAnnouncements = hasAny("announcements.");
+  const showNotifications = hasAny("notifications.");
+  const showTicketsManage = hasAny("tickets.manage", "tickets.assign");
+  const showRoles = perms.includes("settings.roles");
+  const showFtpBrowser = perms.includes("ftp.view");
+  const showFtpSettings = perms.includes("ftp.settings");
+
+  const showCoursesSection = showCoursesManage || showFaculties || showDepartments;
+  const showLibrarySection = showBooksManage || showCategories;
+  const showUsersSection = showUsers || showAnnouncements || showNotifications || showTicketsManage || showRoles;
+  const showFtpSection = showFtpBrowser || showFtpSettings;
+  const showManageSection = showCoursesSection || showLibrarySection || showUsersSection || showFtpSection;
 
   useGSAP(
     () => {
@@ -150,11 +170,21 @@ function SidebarContent({ pathname, mobile = false, collapsed = false, onToggleC
     { scope: rootRef }
   );
 
-  const roleLabel = {
-    SUPER_ADMIN: "مدیر ارشد",
-    ADMIN: "مدیر",
-    PROFESSOR: "استاد",
-    STUDENT: "دانشجو",
+  const [roleDefs, setRoleDefs] = useState([]);
+
+  useEffect(() => {
+    if (!user) return;
+    fetch("/api/proxy/permissions/role-definitions", {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+    })
+      .then((r) => r.json())
+      .then(setRoleDefs)
+      .catch(() => {});
+  }, [user]);
+
+  const getRoleLabel = (roleSlug) => {
+    const found = roleDefs.find((r) => r.slug === roleSlug);
+    return found?.label || roleSlug;
   };
 
   return (
@@ -166,7 +196,17 @@ function SidebarContent({ pathname, mobile = false, collapsed = false, onToggleC
           collapsed ? "justify-center px-2" : "border-b border-border/60"
         )}
       >
-        {!mobile && (collapsed ? (
+        {mobile ? (
+          <div className="flex items-center gap-2">
+            <div className="flex size-10 items-center justify-center rounded-2xl bg-linear-to-br from-primary via-primary/80 to-primary/60 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20">
+              FU
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold leading-none">فایلامـــون</p>
+              <p className="text-xs text-muted-foreground">ورژن 2.3.0</p>
+            </div>
+          </div>
+        ) : collapsed ? (
           <div
             className="group relative flex size-10 cursor-pointer items-center justify-center rounded-2xl bg-linear-to-br from-primary via-primary/70 to-primary/40 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:opacity-80 hover:rounded-xl"
             onClick={onToggleCollapse}
@@ -180,13 +220,13 @@ function SidebarContent({ pathname, mobile = false, collapsed = false, onToggleC
             </div>
             <div className="flex-1">
               <p className="text-sm font-semibold leading-none">فایلامـــون</p>
-              <p className="text-xs text-muted-foreground">سامانه حمایت از حقوق دانشجویی</p>
+              <p className="text-xs text-muted-foreground">ورژن 2.3.0</p>
             </div>
             <Button variant="ghost" size="icon" className="size-8 rounded-xl shrink-0" onClick={onToggleCollapse}>
               <PanelLeftClose className="size-4" />
             </Button>
           </>
-        ))}
+        )}
       </div>
 
       <div className={collapsed ? "h-2" : "h-4"} />
@@ -246,55 +286,95 @@ function SidebarContent({ pathname, mobile = false, collapsed = false, onToggleC
             </div>
           </div>
 
-          {canManage && (
+          {showManageSection && (
             <>
               {!collapsed && <Separator className="bg-border/60" />}
 
               <div data-sidebar-animate className={collapsed ? "flex flex-col items-center space-y-3" : "space-y-3"}>
-                <AccordionSection title="مدیریت درس‌افزار" icon={GraduationCap} defaultOpen collapsed={collapsed}>
-                  <NavItem href="/dashboard/courses/manage" icon={BookOpen} pathname={pathname} collapsed={collapsed}>
-                    مدیریت دروس
-                  </NavItem>
-                  <NavItem href="/dashboard/faculties" icon={Building2} pathname={pathname} collapsed={collapsed}>
-                    دانشکده‌ها
-                  </NavItem>
-                  <NavItem href="/dashboard/departments" icon={FolderOpen} pathname={pathname} collapsed={collapsed}>
-                    گروه‌ها
-                  </NavItem>
-                </AccordionSection>
+                {showCoursesSection && (
+                  <AccordionSection title="مدیریت درس‌افزار" icon={GraduationCap} defaultOpen collapsed={collapsed}>
+                    {showCoursesManage && (
+                      <NavItem href="/dashboard/courses/manage" icon={BookOpen} pathname={pathname} collapsed={collapsed}>
+                        مدیریت دروس
+                      </NavItem>
+                    )}
+                    {showFaculties && (
+                      <NavItem href="/dashboard/faculties" icon={Building2} pathname={pathname} collapsed={collapsed}>
+                        دانشکده‌ها
+                      </NavItem>
+                    )}
+                    {showDepartments && (
+                      <NavItem href="/dashboard/departments" icon={FolderOpen} pathname={pathname} collapsed={collapsed}>
+                        گروه‌ها
+                      </NavItem>
+                    )}
+                  </AccordionSection>
+                )}
 
-                <AccordionSection title="مدیریت کتابخانه" icon={Library} collapsed={collapsed}>
-                  <NavItem href="/dashboard/library/manage" icon={BookOpen} pathname={pathname} collapsed={collapsed}>
-                    مدیریت کتاب‌ها
-                  </NavItem>
-                  <NavItem href="/dashboard/categories" icon={BookMarked} pathname={pathname} collapsed={collapsed}>
-                    دسته‌بندی‌ها
-                  </NavItem>
-                </AccordionSection>
+                {showLibrarySection && (
+                  <AccordionSection title="مدیریت کتابخانه" icon={Library} collapsed={collapsed}>
+                    {showBooksManage && (
+                      <NavItem href="/dashboard/library/manage" icon={BookOpen} pathname={pathname} collapsed={collapsed}>
+                        مدیریت کتاب‌ها
+                      </NavItem>
+                    )}
+                    {showCategories && (
+                      <NavItem href="/dashboard/categories" icon={BookMarked} pathname={pathname} collapsed={collapsed}>
+                        دسته‌بندی‌ها
+                      </NavItem>
+                    )}
+                  </AccordionSection>
+                )}
 
-                <AccordionSection title="مدیریت کاربران" icon={Users} collapsed={collapsed}>
-                  <NavItem href="/dashboard/users" icon={Users} pathname={pathname} collapsed={collapsed}>
-                    کاربران
-                  </NavItem>
-                  <NavItem href="/dashboard/announcements" icon={Megaphone} pathname={pathname} collapsed={collapsed}>
-                    اعلامیه‌ها
-                  </NavItem>
-                  <NavItem href="/dashboard/notifications" icon={Bell} pathname={pathname} collapsed={collapsed}>
-                    اعلان‌ها
-                  </NavItem>
-                  <NavItem href="/dashboard/tickets/manage" icon={MessageSquare} pathname={pathname} collapsed={collapsed}>
-                    مدیریت تیکت‌ها
-                  </NavItem>
-                </AccordionSection>
+                {showUsersSection && (
+                  <AccordionSection title="مدیریت کاربران" icon={Users} collapsed={collapsed}>
+                    {showUsers && (
+                      <NavItem href="/dashboard/users" icon={Users} pathname={pathname} collapsed={collapsed}>
+                        کاربران
+                      </NavItem>
+                    )}
+                    {showAnnouncements && (
+                      <NavItem href="/dashboard/announcements" icon={Megaphone} pathname={pathname} collapsed={collapsed}>
+                        اعلامیه‌ها
+                      </NavItem>
+                    )}
+                    {showNotifications && (
+                      <NavItem href="/dashboard/notifications" icon={Bell} pathname={pathname} collapsed={collapsed}>
+                        اعلان‌ها
+                      </NavItem>
+                    )}
+                    {showTicketsManage && (
+                      <NavItem href="/dashboard/tickets/manage" icon={MessageSquare} pathname={pathname} collapsed={collapsed}>
+                        مدیریت تیکت‌ها
+                      </NavItem>
+                    )}
+                    {showRoles && (
+                      <NavItem href="/dashboard/roles" icon={Shield} pathname={pathname} collapsed={collapsed}>
+                        مدیریت رول‌ها
+                      </NavItem>
+                    )}
+                    {showRoles && (
+                      <NavItem href="/dashboard/logs" icon={BarChart3} pathname={pathname} collapsed={collapsed}>
+                        لاگ فعالیت‌ها
+                      </NavItem>
+                    )}
+                  </AccordionSection>
+                )}
 
-                <AccordionSection title="مدیریت FTP" icon={HardDrive} collapsed={collapsed}>
-                  <NavItem href="/dashboard/ftp" icon={FolderOpen} pathname={pathname} collapsed={collapsed}>
-                    مرورگر فایل
-                  </NavItem>
-                  <NavItem href="/dashboard/ftp/settings" icon={Settings} pathname={pathname} collapsed={collapsed}>
-                    تنظیمات
-                  </NavItem>
-                </AccordionSection>
+                {showFtpSection && (
+                  <AccordionSection title="مدیریت FTP" icon={HardDrive} collapsed={collapsed}>
+                    {showFtpBrowser && (
+                      <NavItem href="/dashboard/ftp" icon={FolderOpen} pathname={pathname} collapsed={collapsed}>
+                        مرورگر فایل
+                      </NavItem>
+                    )}
+                    {showFtpSettings && (
+                      <NavItem href="/dashboard/ftp/settings" icon={Settings} pathname={pathname} collapsed={collapsed}>
+                        تنظیمات
+                      </NavItem>
+                    )}
+                  </AccordionSection>
+                )}
               </div>
             </>
           )}
@@ -303,7 +383,6 @@ function SidebarContent({ pathname, mobile = false, collapsed = false, onToggleC
         </div>
       </ScrollArea>
 
-      {/* Fixed user section at bottom */}
       <div className={cn("shrink-0 bg-card/90 p-4", collapsed && "border-t-0 bg-transparent p-2")}>
         {collapsed ? (
           <div className="flex flex-col items-center gap-2">
@@ -331,7 +410,7 @@ function SidebarContent({ pathname, mobile = false, collapsed = false, onToggleC
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">{user?.name}</p>
                 <p className="truncate text-xs text-muted-foreground" dir="ltr">{user?.email || user?.username || ""}</p>
-                <p className="text-[10px] text-muted-foreground/70">{roleLabel[user?.role]}</p>
+                <p className="text-[10px] text-muted-foreground/70">{getRoleLabel(user?.role)}</p>
               </div>
               <Button variant="ghost" size="icon" className="size-8 shrink-0 rounded-xl" onClick={(e) => { e.preventDefault(); e.stopPropagation(); logout(); }}>
                 <LogOut className="size-4 text-muted-foreground" />

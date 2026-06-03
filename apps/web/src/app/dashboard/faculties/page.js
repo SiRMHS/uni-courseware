@@ -11,6 +11,7 @@ import { fetchFaculties, createFaculty, updateFaculty, deleteFaculty } from "@/l
 import { Plus, Pencil, Trash2, Building2, Layers } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { RequirePermission } from "@/components/RequirePermission";
 
 export default function FacultiesPage() {
   const [faculties, setFaculties] = useState([]);
@@ -75,6 +76,7 @@ export default function FacultiesPage() {
   };
 
   return (
+    <RequirePermission permissions={["faculties.create", "faculties.edit"]}>
     <div className="space-y-6">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -178,5 +180,6 @@ export default function FacultiesPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </RequirePermission>
   );
 }

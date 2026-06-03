@@ -5,9 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Settings } from "lucide-react";
+import { RequirePermission } from "@/components/RequirePermission";
 
 export default function FtpSettingsPage() {
   return (
+    <RequirePermission permissions={["ftp.settings"]}>
     <div className="space-y-6 text-right">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -86,5 +88,6 @@ export default function FtpSettingsPage() {
         </Card>
       </motion.div>
     </div>
+    </RequirePermission>
   );
 }

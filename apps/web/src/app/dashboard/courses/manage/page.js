@@ -11,6 +11,7 @@ import { Plus, Pencil, Trash2, Search, Building2, GraduationCap } from "lucide-r
 import { toast } from "sonner";
 import { ImageSelector } from "@/components/MediaManager";
 import Link from "next/link";
+import { RequirePermission } from "@/components/RequirePermission";
 
 export default function ManageCoursesPage() {
   const [courses, setCourses] = useState([]);
@@ -82,6 +83,7 @@ export default function ManageCoursesPage() {
   );
 
   return (
+    <RequirePermission permissions={["courses.create", "courses.edit"]}>
     <div className="space-y-6">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -243,5 +245,6 @@ export default function ManageCoursesPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </RequirePermission>
   );
 }

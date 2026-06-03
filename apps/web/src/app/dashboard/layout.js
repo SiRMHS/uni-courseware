@@ -50,12 +50,12 @@ export default function DashboardLayout({
   if (!user) return null;
 
   return (
-    <div className="flex h-screen overflow-x-hidden bg-background text-foreground" dir="rtl">
+    <div className="flex h-dvh overflow-x-hidden bg-background text-foreground" dir="rtl">
       <Sidebar collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar} />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <ThemeProvider>
           <Header />
-          <main className="min-w-0 flex-1 overflow-y-auto p-4 pb-20 sm:p-6 lg:p-8 lg:pb-0">{children}</main>
+          <main className="min-w-0 flex-1 overflow-y-auto p-4 pb-24 sm:p-6 lg:p-8 lg:pb-6">{children}</main>
         </ThemeProvider>
       </div>
       <BottomNav />

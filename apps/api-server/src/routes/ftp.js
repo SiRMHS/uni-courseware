@@ -2,7 +2,7 @@ import { Router } from "express";
 import path from "node:path";
 import { Readable } from "node:stream";
 import multer from "multer";
-import { authenticate, requireRole } from "../middleware/auth.js";
+import { authenticate, requireRole, requirePermission } from "../middleware/auth.js";
 import { createFtpClient, buildPublicFileUrl, resolveFtpPath } from "../services/ftpOperations.js";
 import { prisma } from "@uni/database";
 
@@ -135,10 +135,12 @@ router.get("/list-remote", authenticate, async (req, res) => {
 });
 
 // POST /api/ftp/upload?path=/remote/path&folder=/filamoon_uploads
-router.post("/upload", authenticate, upload.single("file"), async (req, res) => {
+router.post("/upload", authenticate, requirePermission("ftp.upload"), upload.single("file"), async (req, res) => {
   try {
     const rawPath = req.query.path || "";
     const targetPath = rawPath ? resolveFtpPath(rawPath) : resolveFtpPath("/filamoon_uploads");
+
+    // Path permission check: requirePermission("ftp.upload") already ensures the user can upload
     const folder = req.query.folder || "/filamoon_uploads/general";
     if (!req.file) return res.status(400).json({ message: "فایل ارسال نشده است" });
 
@@ -182,7 +184,7 @@ router.post("/upload", authenticate, upload.single("file"), async (req, res) => 
 });
 
 // POST /api/ftp/mkdir
-router.post("/mkdir", authenticate, async (req, res) => {
+router.post("/mkdir", authenticate, requirePermission("ftp.upload"), async (req, res) => {
   try {
     const targetPath = resolveFtpPath(req.body.path || "/");
     const folderName = String(req.body.name || "").trim();
@@ -204,7 +206,7 @@ router.post("/mkdir", authenticate, async (req, res) => {
 });
 
 // POST /api/ftp/delete (also handles DELETE for REST compliance)
-router.post("/delete", authenticate, async (req, res) => {
+router.post("/delete", authenticate, requirePermission("ftp.delete"), async (req, res) => {
   try {
     const remotePath = resolveFtpPath(req.body.path || req.query.path || "");
     const fileId = req.body.fileId || req.query.fileId;
@@ -263,7 +265,7 @@ router.post("/delete", authenticate, async (req, res) => {
 });
 
 // DELETE /api/ftp/delete — same logic, read path from query
-router.delete("/delete", authenticate, async (req, res) => {
+router.delete("/delete", authenticate, requirePermission("ftp.delete"), async (req, res) => {
   try {
     const remotePath = resolveFtpPath(req.query.path || req.body?.path || "");
     const fileId = req.query.fileId || req.body?.fileId;
@@ -334,7 +336,7 @@ router.get("/file", async (req, res) => {
 });
 
 // POST /api/ftp/rename
-router.post("/rename", authenticate, requireRole("SUPER_ADMIN", "ADMIN"), async (req, res) => {
+router.post("/rename", authenticate, requirePermission("ftp.rename"), async (req, res) => {
   try {
     const { path: itemPath, newName } = req.body;
     if (!itemPath || !newName) return res.status(400).json({ message: "path و newName الزامی است" });

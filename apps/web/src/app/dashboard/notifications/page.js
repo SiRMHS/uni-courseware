@@ -11,6 +11,7 @@ import { fetchNotifications, createNotification, deleteNotification } from "@/li
 import { Bell, Plus, Trash2, Link as LinkIcon, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { RequirePermission } from "@/components/RequirePermission";
 
 export default function NotificationsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -19,8 +20,6 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ title: "", body: "", link: "" });
   const [submitting, setSubmitting] = useState(false);
-
-  const canManage = user?.role === "SUPER_ADMIN" || user?.role === "ADMIN";
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -39,12 +38,8 @@ export default function NotificationsPage() {
       router.replace("/dashboard/login");
       return;
     }
-    if (!canManage) {
-      router.replace("/dashboard");
-      return;
-    }
     loadNotifications();
-  }, [authLoading, user, canManage, router, loadNotifications]);
+  }, [authLoading, user, router, loadNotifications]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -92,6 +87,7 @@ export default function NotificationsPage() {
   }
 
   return (
+    <RequirePermission permissions={["notifications.create", "notifications.delete", "notifications.view"]}>
     <div className="space-y-6">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -199,5 +195,6 @@ export default function NotificationsPage() {
         )}
       </div>
     </div>
+    </RequirePermission>
   );
 }

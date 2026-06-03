@@ -10,18 +10,31 @@ export const upload = multer({ storage: multer.memoryStorage() });
 
 export async function getCategoriesHandler(req, res, next) {
   try {
-    const categories = await prisma.category.findMany({ orderBy: { name: "asc" } });
-    res.json(categories);
+    const categories = await prisma.category.findMany({
+      orderBy: { name: "asc" },
+      include: { children: { orderBy: { name: "asc" } } },
+    });
+    const flat = categories.filter((c) => !c.parentId).map((c) => ({
+      ...c,
+      children: c.children || [],
+    }));
+    res.json(flat);
   } catch (err) { next(err); }
 }
 
 export async function createCategoryHandler(req, res, next) {
   try {
-    const { name, slug } = req.body;
+    const { name, slug, parentId } = req.body;
     if (!name || !slug) return res.status(400).json({ error: "نام و اسلاگ الزامی است" });
     const existing = await prisma.category.findUnique({ where: { slug } });
     if (existing) return res.status(409).json({ error: "این اسلاگ قبلاً استفاده شده است" });
-    const category = await prisma.category.create({ data: { name, slug } });
+    const data = { name, slug };
+    if (parentId) {
+      const parent = await prisma.category.findUnique({ where: { id: parentId } });
+      if (!parent) return res.status(400).json({ error: "دسته‌بندی والد یافت نشد" });
+      data.parentId = parentId;
+    }
+    const category = await prisma.category.create({ data, include: { children: true } });
     res.status(201).json(category);
   } catch (err) { next(err); }
 }
@@ -29,8 +42,21 @@ export async function createCategoryHandler(req, res, next) {
 export async function updateCategoryHandler(req, res, next) {
   try {
     const { slug } = req.params;
-    const { name } = req.body;
-    const category = await prisma.category.update({ where: { slug }, data: { name } });
+    const { name, parentId } = req.body;
+    const data = {};
+    if (name !== undefined) data.name = name;
+    if (parentId !== undefined) {
+      if (parentId) {
+        const parent = await prisma.category.findUnique({ where: { id: parentId } });
+        if (!parent) return res.status(400).json({ error: "دسته‌بندی والد یافت نشد" });
+      }
+      data.parentId = parentId || null;
+    }
+    const category = await prisma.category.update({
+      where: { slug },
+      data,
+      include: { children: true },
+    });
     res.json(category);
   } catch (err) { next(err); }
 }
@@ -38,6 +64,11 @@ export async function updateCategoryHandler(req, res, next) {
 export async function deleteCategoryHandler(req, res, next) {
   try {
     const { slug } = req.params;
+    const cat = await prisma.category.findUnique({ where: { slug }, include: { children: true } });
+    if (!cat) return res.status(404).json({ error: "دسته‌بندی یافت نشد" });
+    if (cat.children?.length > 0) {
+      return res.status(400).json({ error: "این دسته‌بندی دارای زیردسته است. ابتدا زیردسته‌ها را حذف کنید." });
+    }
     await prisma.category.delete({ where: { slug } });
     res.json({ message: "دسته‌بندی با موفقیت حذف شد" });
   } catch (err) { next(err); }

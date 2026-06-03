@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { fetchDepartments, fetchFaculties, createDepartment, updateDepartment, deleteDepartment } from "@/lib/api";
 import { Plus, Pencil, Trash2, Building2 } from "lucide-react";
 import { toast } from "sonner";
+import { RequirePermission } from "@/components/RequirePermission";
 
 export default function DepartmentsPage() {
   const searchParams = useSearchParams();
@@ -97,6 +98,7 @@ export default function DepartmentsPage() {
     : departments;
 
   return (
+    <RequirePermission permissions={["departments.create", "departments.edit"]}>
     <div className="space-y-6">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -220,5 +222,6 @@ export default function DepartmentsPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </RequirePermission>
   );
 }

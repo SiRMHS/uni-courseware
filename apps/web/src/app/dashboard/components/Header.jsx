@@ -83,11 +83,21 @@ export function Header() {
     pathname.startsWith(path)
   )?.[1] ?? "داشبورد";
 
-  const roleLabel = {
-    SUPER_ADMIN: "مدیر ارشد",
-    ADMIN: "مدیر",
-    PROFESSOR: "استاد",
-    STUDENT: "دانشجو",
+  const [roleDefs, setRoleDefs] = useState([]);
+
+  useEffect(() => {
+    if (!user) return;
+    fetch("/api/proxy/permissions/role-definitions", {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+    })
+      .then((r) => r.json())
+      .then(setRoleDefs)
+      .catch(() => {});
+  }, [user]);
+
+  const getRoleLabel = (roleSlug) => {
+    const found = roleDefs.find((r) => r.slug === roleSlug);
+    return found?.label || roleSlug;
   };
 
   return (
@@ -124,7 +134,7 @@ export function Header() {
               )}
             </Button>
             {notifOpen && (
-              <div className="absolute left-0 top-full z-50 mt-2 w-80 rounded-xl border border-border/60 bg-card shadow-lg backdrop-blur-xl">
+              <div className="absolute left-0 top-full z-50 mt-2 w-80 rounded-xl border border-border/60 bg-card shadow-lg backdrop-blur-xl max-sm:fixed max-sm:inset-x-4 max-sm:w-auto">
                 <div className="border-b border-border/40 p-3">
                   <p className="text-sm font-semibold">اعلان‌ها</p>
                 </div>
@@ -166,7 +176,7 @@ export function Header() {
                 </Avatar>
                 <div className="text-right flex-col">
                   <p className="text-sm font-medium leading-tight">{user?.name}</p>
-                  <p className="text-[10px] text-muted-foreground">{roleLabel[user?.role]}</p>
+                  <p className="text-[10px] text-muted-foreground">{getRoleLabel(user?.role)}</p>
                 </div>
               </Button>
             </DropdownMenuTrigger>

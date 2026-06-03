@@ -7,11 +7,40 @@ generator client {
   provider = "prisma-client-js"
 }
 
-enum Role {
-  SUPER_ADMIN
-  ADMIN
-  PROFESSOR
-  STUDENT
+model RoleDefinition {
+  id          String           @id @default(uuid())
+  slug        String           @unique
+  name        String
+  label       String
+  icon        String           @default("Shield")
+  color       String           @default("text-muted-foreground")
+  isSystem    Boolean          @default(false)
+  sortOrder   Int              @default(0)
+  permissions RolePermission[]
+  users       User[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model Permission {
+  id          String            @id @default(uuid())
+  key         String            @unique
+  name        String
+  description String?
+  group       String?
+  rolePermissions RolePermission[]
+  createdAt   DateTime          @default(now())
+}
+
+model RolePermission {
+  id           String         @id @default(uuid())
+  role         String
+  roleDef      RoleDefinition @relation(fields: [role], references: [slug], onDelete: Cascade)
+  permissionId String
+  permission   Permission     @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime       @default(now())
+
+  @@unique([role, permissionId])
 }
 
 enum ModuleType {
@@ -126,7 +155,8 @@ model User {
   username        String?          @unique
   email           String?          @unique
   password        String
-  role            Role             @default(STUDENT)
+  role            String           @default("STUDENT")
+  roleDef         RoleDefinition?  @relation(fields: [role], references: [slug], onDelete: SetNull)
   studentId       String?
   avatar          String?
   badge           String?
@@ -197,12 +227,15 @@ model Course {
 }
 
 model Category {
-  id        String   @id @default(uuid())
+  id        String     @id @default(uuid())
   name      String
-  slug      String   @unique
+  slug      String     @unique
+  parentId  String?
+  parent    Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Category[] @relation("CategoryHierarchy")
   books     Book[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 }
 
 model PublishedFolder {

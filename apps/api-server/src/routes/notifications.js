@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authenticate, requireRole } from "../middleware/auth.js";
+import { authenticate, requireRole, requirePermission } from "../middleware/auth.js";
 import { prisma } from "@uni/database";
 
 const router = Router();
@@ -15,7 +15,7 @@ router.get("/", authenticate, async (req, res) => {
   }
 });
 
-router.post("/", authenticate, requireRole("SUPER_ADMIN", "ADMIN"), async (req, res) => {
+router.post("/", authenticate, requirePermission("notifications.create"), async (req, res) => {
   try {
     const { title, body, link } = req.body;
     if (!title) return res.status(400).json({ error: "title is required" });
@@ -28,7 +28,7 @@ router.post("/", authenticate, requireRole("SUPER_ADMIN", "ADMIN"), async (req, 
   }
 });
 
-router.delete("/:id", authenticate, requireRole("SUPER_ADMIN", "ADMIN"), async (req, res) => {
+router.delete("/:id", authenticate, requirePermission("notifications.delete"), async (req, res) => {
   try {
     await prisma.notification.delete({ where: { id: req.params.id } });
     res.json({ message: "deleted" });

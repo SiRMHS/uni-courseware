@@ -19,13 +19,6 @@ import { toast } from "sonner";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 
-const roleLabels = {
-  SUPER_ADMIN: "مدیر ارشد",
-  ADMIN: "مدیر",
-  PROFESSOR: "استاد",
-  STUDENT: "دانشجو",
-};
-
 const teamRoleLabels = {
   leader: "سرپرست",
   member: "عضو",
@@ -47,6 +40,18 @@ export default function TeamPage() {
   const [addMemberDialog, setAddMemberDialog] = useState(null);
   const [users, setUsers] = useState([]);
   const [userSearch, setUserSearch] = useState("");
+  const [roleDefs, setRoleDefs] = useState([]);
+
+  useEffect(() => {
+    fetch("/api/proxy/permissions/role-definitions", {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+    })
+      .then((r) => r.json())
+      .then(setRoleDefs)
+      .catch(() => {});
+  }, []);
+
+  const getRoleLabel = (slug) => roleDefs.find((r) => r.slug === slug)?.label || slug;
 
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
 
@@ -210,31 +215,33 @@ export default function TeamPage() {
               {t.members.length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">هیچ عضوی در این تیم وجود ندارد</p>
               ) : (
-                <div className="flex flex-wrap gap-4">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                   {t.members.map((m) => (
                     <Link
                       key={m.id}
                       href={`/dashboard/users/${m.user.id}`}
-                      className="group flex w-full items-center gap-3 rounded-xl border border-border/40 bg-card p-3 transition-all hover:border-primary/30 hover:shadow-sm sm:w-[calc(50%-0.5rem)] lg:w-[calc(25%-0.75rem)]"
+                      className="group relative flex flex-col items-center overflow-hidden rounded-xl border border-border/40 bg-card transition-all hover:border-primary/30 hover:shadow-sm"
                     >
-                      <Avatar className="size-12 shrink-0 rounded-xl">
-                        {m.user.avatar ? <AvatarImage src={m.user.avatar} /> : null}
-                        <AvatarFallback className="rounded-xl bg-primary/10 text-primary text-sm font-medium">
-                          {getInitials(m.user.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 flex-1">
+                      <div className="relative w-full overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5">
+                        <Avatar className="mx-auto size-45 md:size-61 rounded-none">
+                          {m.user.avatar ? <AvatarImage src={m.user.avatar} className="size-full object-cover" /> : null}
+                          <AvatarFallback className="size-full rounded-none bg-gradient-to-br from-primary/30 to-primary/10 text-2xl font-bold text-primary">
+                            {getInitials(m.user.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                      </div>
+                      <div className="w-full space-y-1 p-3 text-center">
                         <p className="truncate text-sm font-medium">{m.user.name}</p>
                         <p className="truncate text-xs text-muted-foreground" dir="ltr">{m.user.username}</p>
-                        <span className="mt-0.5 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                          {roleLabels[m.user.role] || m.user.role}
+                        <span className="inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                          {getRoleLabel(m.user.role)}
                         </span>
                       </div>
                       {isSuperAdmin && (
                         <button
                           type="button"
                           onClick={(e) => { e.preventDefault(); handleRemoveMember(t.id, m.id); }}
-                          className="shrink-0 rounded-lg p-1 text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                          className="absolute left-1 top-1 z-10 rounded-lg bg-background/80 p-1 text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 backdrop-blur-sm"
                         >
                           <X className="size-3.5" />
                         </button>
@@ -317,7 +324,7 @@ export default function TeamPage() {
                       <p className="truncate text-xs text-muted-foreground" dir="ltr">{u.username || u.email}</p>
                     </div>
                     <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                      {roleLabels[u.role] || u.role}
+                      {getRoleLabel(u.role)}
                     </span>
                   </button>
                 ))

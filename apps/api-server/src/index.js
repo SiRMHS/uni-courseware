@@ -53,7 +53,7 @@ import {
   deleteBookHandler,
   upload,
 } from "./routes/books.js";
-import { authenticate, requireRole } from "./middleware/auth.js";
+import { authenticate, requireAnyPermission } from "./middleware/auth.js";
 import ftpRouter from "./routes/ftp.js";
 import notificationRoutes from "./routes/notifications.js";
 import ticketRoutes from "./routes/tickets.js";
@@ -61,6 +61,7 @@ import eventRoutes from "./routes/events.js";
 import announcementRoutes from "./routes/announcements.js";
 import activityRoutes from "./routes/activities.js";
 import teamRoutes from "./routes/teams.js";
+import permissionRoutes from "./routes/permissions.js";
 
 const app = express();
 
@@ -84,7 +85,7 @@ const usersRouter = express.Router();
 usersRouter.get("/:id", authenticate, getUserHandler);
 
 const usersAdminRouter = express.Router();
-usersAdminRouter.use(authenticate, requireRole("SUPER_ADMIN", "ADMIN"));
+usersAdminRouter.use(authenticate, requireAnyPermission("users.view", "users.create", "users.edit", "users.delete"));
 usersAdminRouter.get("/", listUsersHandler);
 usersAdminRouter.post("/", createUserHandler);
 usersAdminRouter.put("/:id", updateUserHandler);
@@ -113,7 +114,7 @@ app.get("/api/courses/:slug", getCourseHandler);
 
 // Course management routes (admin/professor)
 const courseManagementRouter = express.Router();
-courseManagementRouter.use(authenticate, requireRole("SUPER_ADMIN", "ADMIN", "PROFESSOR"));
+courseManagementRouter.use(authenticate, requireAnyPermission("courses.create", "courses.edit", "courses.delete"));
 courseManagementRouter.post("/", createCourseHandler);
 courseManagementRouter.put("/:slug", updateCourseHandler);
 courseManagementRouter.delete("/:slug", deleteCourseHandler);
@@ -121,7 +122,7 @@ app.use("/api/courses/manage", courseManagementRouter);
 
 // Faculty management (admin)
 const facultyManagementRouter = express.Router();
-facultyManagementRouter.use(authenticate, requireRole("SUPER_ADMIN", "ADMIN"));
+facultyManagementRouter.use(authenticate, requireAnyPermission("faculties.create", "faculties.edit", "faculties.delete"));
 facultyManagementRouter.post("/", createFacultyHandler);
 facultyManagementRouter.put("/:slug", updateFacultyHandler);
 facultyManagementRouter.delete("/:slug", deleteFacultyHandler);
@@ -129,7 +130,7 @@ app.use("/api/faculties", facultyManagementRouter);
 
 // Department management (admin)
 const deptManagementRouter = express.Router();
-deptManagementRouter.use(authenticate, requireRole("SUPER_ADMIN", "ADMIN"));
+deptManagementRouter.use(authenticate, requireAnyPermission("departments.create", "departments.edit", "departments.delete"));
 deptManagementRouter.post("/", createDepartmentHandler);
 deptManagementRouter.put("/:id", updateDepartmentHandler);
 deptManagementRouter.delete("/:id", deleteDepartmentHandler);
@@ -142,7 +143,7 @@ app.get("/api/categories", getCategoriesHandler);
 
 // Book management (admin/professor)
 const bookManagementRouter = express.Router();
-bookManagementRouter.use(authenticate, requireRole("SUPER_ADMIN", "ADMIN", "PROFESSOR"));
+bookManagementRouter.use(authenticate, requireAnyPermission("books.create", "books.edit", "books.delete"));
 bookManagementRouter.post("/", upload.single("fileUpload"), createBookHandler);
 bookManagementRouter.put("/:slug", upload.single("fileUpload"), updateBookHandler);
 bookManagementRouter.delete("/:slug", deleteBookHandler);
@@ -150,7 +151,7 @@ app.use("/api/books/manage", bookManagementRouter);
 
 // Category management (admin)
 const categoryManagementRouter = express.Router();
-categoryManagementRouter.use(authenticate, requireRole("SUPER_ADMIN", "ADMIN"));
+categoryManagementRouter.use(authenticate, requireAnyPermission("categories.create", "categories.edit", "categories.delete"));
 categoryManagementRouter.post("/", createCategoryHandler);
 categoryManagementRouter.put("/:slug", updateCategoryHandler);
 categoryManagementRouter.delete("/:slug", deleteCategoryHandler);
@@ -164,6 +165,7 @@ app.use("/api/events", eventRoutes);
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/activities", activityRoutes);
 app.use("/api/teams", teamRoutes);
+app.use("/api/permissions", permissionRoutes);
 
 app.use((err, _req, res, _next) => {
   const status = err.status ?? 500;

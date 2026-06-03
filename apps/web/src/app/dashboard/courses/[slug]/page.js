@@ -58,6 +58,7 @@ import {
   Loader2,
   FolderPlus,
 } from "lucide-react";
+import { FolderCard } from "@/components/FolderCard";
 import { createPlayer, videoFeatures } from "@videojs/react";
 import {
   VideoSkin,
@@ -135,8 +136,12 @@ export default function CourseDetailPage() {
   const uploadAbortRef = useRef(null);
   const contextMenuRef = useRef(null);
   const playerWrapperRef = useRef(null);
+  const [rolePerms, setRolePerms] = useState([]);
 
-  const isAdmin = user && ["SUPER_ADMIN", "ADMIN"].includes(user.role);
+  const canFtpUpload = rolePerms.includes("ftp.upload");
+  const canFtpDelete = rolePerms.includes("ftp.delete");
+  const canFtpRename = rolePerms.includes("ftp.rename");
+  const canManageFtp = canFtpUpload || canFtpDelete || canFtpRename;
   const lastWatchedKey = `lastWatched_${slug}`;
 
   const loadCourse = useCallback(async () => {
@@ -151,6 +156,16 @@ export default function CourseDetailPage() {
   }, [slug]);
 
   useEffect(() => { loadCourse(); }, [loadCourse]);
+
+  useEffect(() => {
+    if (!user?.role) return;
+    fetch("/api/proxy/permissions/roles", {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+    })
+      .then((r) => r.json())
+      .then((data) => setRolePerms(data[user.role] || []))
+      .catch(() => {});
+  }, [user]);
 
   useEffect(() => {
     if (!course?.ftpPath) return;
@@ -534,7 +549,7 @@ export default function CourseDetailPage() {
                 فهرست
               </TabsTrigger>
             </TabsList>
-            {isAdmin && (
+            {canManageFtp && (
               <div className="flex items-center gap-2">
                 <input
                   ref={uploadInputRef}
@@ -593,7 +608,7 @@ export default function CourseDetailPage() {
             ) : currentLoading || displayNamesLoading ? (
               <div className="space-y-6">
                 <Skeleton className="h-8 w-24" />
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-3 gap-4 sm:grid-cols-2">
                   {Array.from({ length: 4 }).map((_, i) => (
                     <Skeleton key={i} className="aspect-video rounded-xl" />
                   ))}
@@ -601,7 +616,7 @@ export default function CourseDetailPage() {
               </div>
             ) : (
               <div className="space-y-8">
-                {videos.length > 0 && (
+                {!folderPath && videos.length > 0 && (
                   <div className="space-y-4">
                     <h2 className="flex items-center gap-2 text-lg font-semibold">
                       <Video className="size-5 text-purple-500" />
@@ -620,7 +635,7 @@ export default function CourseDetailPage() {
                             whileTap={{ scale: 0.96 }}
                             className="group relative cursor-pointer overflow-hidden rounded-xl border border-border/40 bg-card/50 transition-all hover:border-border hover:shadow-md"
                             onClick={() => selectVideo(entry)}
-                            onContextMenu={(e) => isAdmin && handleContextMenu(e, entry, false)}
+                            onContextMenu={(e) => canManageFtp && handleContextMenu(e, entry, false)}
                           >
                             <div className="relative aspect-video overflow-hidden bg-gradient-to-br from-primary/40 to-primary/20">
                               {meta?.poster ? (
@@ -639,7 +654,7 @@ export default function CourseDetailPage() {
                             <div className="space-y-1.5 p-3">
                               <div className="flex items-start justify-between gap-2">
                                 <p className="line-clamp-2 text-sm font-medium leading-tight">{displayTitle}</p>
-                                {isAdmin && (
+                                {canManageFtp && (
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                                       <Button variant="ghost" size="icon" className="size-7 shrink-0 rounded-lg">
@@ -696,26 +711,20 @@ export default function CourseDetailPage() {
                   </div>
                 )}
 
-                {folders.length > 0 && (
+                {!folderPath && folders.length > 0 && (
                   <div className="space-y-4">
                     <h2 className="flex items-center gap-2 text-lg font-semibold">
                       <Folder className="size-5 text-amber-500" />
                       پوشه‌ها
                     </h2>
-                    <div className="flex flex-wrap gap-3">
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
                       {folders.map((entry) => (
-                        <div key={entry.name} className="relative">
-                          <button
-                            type="button"
-                            onClick={() => openFolder(entry.name)}
-                            onContextMenu={(e) => isAdmin && handleContextMenu(e, entry, true)}
-                            className="flex items-center gap-2 rounded-xl border border-border/40 bg-background/30 px-4 py-3 text-right transition-colors hover:bg-accent/40"
-                          >
-                            <Folder className="size-5 shrink-0 text-amber-500" />
-                            <span className="text-sm font-medium">{entry.name}</span>
-                            <ArrowLeft className="mr-2 size-4 text-muted-foreground" />
-                          </button>
-                        </div>
+                        <FolderCard
+                          key={entry.name}
+                          entry={entry}
+                          onClick={() => openFolder(entry.name)}
+                          onContextMenu={(e) => canManageFtp && handleContextMenu(e, entry, true)}
+                        />
                       ))}
                     </div>
                   </div>
@@ -734,19 +743,35 @@ export default function CourseDetailPage() {
                           بازگشت
                         </button>
                         <span className="text-sm text-muted-foreground">/</span>
-                        <span className="text-sm font-medium">{folderPath.split("/").pop()}</span>
+                        <span className="truncate text-sm font-muted-foreground" dir="ltr">{folderPath.replace(ftpPath, "")}</span>
                       </div>
                     </div>
                     {folderLoading ? (
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div className="grid grid-cols-3 gap-4 sm:grid-cols-2">
                         {Array.from({ length: 4 }).map((_, i) => (
                           <Skeleton key={i} className="aspect-video rounded-xl" />
                         ))}
                       </div>
                     ) : folderEntries && folderEntries.length > 0 ? (
                       <>
+                        {folderEntries.filter((e) => e.isDirectory).length > 0 && (
+                          <div className="space-y-2">
+                            <h3 className="text-sm font-medium text-muted-foreground">پوشه‌ها</h3>
+                            <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+                              {[...folderEntries.filter((e) => e.isDirectory)]
+                                .sort((a, b) => a.name.localeCompare(b.name, "fa"))
+                                .map((entry) => (
+                                  <FolderCard
+                                    key={entry.name}
+                                    entry={entry}
+                                    onClick={() => openFolder(entry.name)}
+                                  />
+                                ))}
+                            </div>
+                          </div>
+                        )}
                         {folderEntries.filter((e) => isVideo(e.name)).length > 0 && (
-                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                             {[...folderEntries.filter((e) => isVideo(e.name))]
                               .sort((a, b) => a.name.localeCompare(b.name, "fa"))
                               .map((entry) => {
@@ -761,7 +786,7 @@ export default function CourseDetailPage() {
                                     whileTap={{ scale: 0.96 }}
                                     className="group relative cursor-pointer overflow-hidden rounded-xl border border-border/40 bg-card/50 transition-all hover:border-border hover:shadow-md"
                                     onClick={() => selectVideo(entry)}
-                                    onContextMenu={(e) => isAdmin && handleContextMenu(e, entry, false)}
+                                    onContextMenu={(e) => canManageFtp && handleContextMenu(e, entry, false)}
                                   >
                                     <div className="relative aspect-video overflow-hidden bg-gradient-to-br from-purple-900/40 to-indigo-900/40">
                                       {meta?.poster ? (
@@ -798,7 +823,7 @@ export default function CourseDetailPage() {
                                     <div
                                       key={entry.name}
                                       className="group relative rounded-xl border border-border/40 bg-background/30 transition-colors hover:bg-accent/40"
-                                      onContextMenu={(e) => isAdmin && handleContextMenu(e, entry, false)}
+                                      onContextMenu={(e) => canManageFtp && handleContextMenu(e, entry, false)}
                                     >
                                       <div
                                         onClick={() => {
@@ -830,7 +855,7 @@ export default function CourseDetailPage() {
                   </div>
                 )}
 
-                {otherFiles.length > 0 && (
+                {!folderPath && otherFiles.length > 0 && (
                   <div className="space-y-4">
                     <h2 className="flex items-center gap-2 text-lg font-semibold">
                       <File className="size-5 text-muted-foreground" />
@@ -845,7 +870,7 @@ export default function CourseDetailPage() {
                           <div
                             key={entry.name}
                             className="group relative rounded-xl border border-border/40 bg-background/30 transition-colors hover:bg-accent/40"
-                            onContextMenu={(e) => isAdmin && handleContextMenu(e, entry, false)}
+                            onContextMenu={(e) => canManageFtp && handleContextMenu(e, entry, false)}
                           >
                             <div
                               onClick={() => {
@@ -871,7 +896,7 @@ export default function CourseDetailPage() {
                   </div>
                 )}
 
-                {videos.length === 0 && folders.length === 0 && otherFiles.length === 0 && (
+                {!folderPath && videos.length === 0 && folders.length === 0 && otherFiles.length === 0 && (
                   <p className="py-12 text-center text-muted-foreground">این پوشه خالی است</p>
                 )}
               </div>
@@ -921,7 +946,7 @@ export default function CourseDetailPage() {
                             key={entry.name}
                             type="button"
                             onClick={() => openFolder(entry.name)}
-                            onContextMenu={(e) => isAdmin && handleContextMenu(e, entry, true)}
+                            onContextMenu={(e) => canManageFtp && handleContextMenu(e, entry, true)}
                             className="flex w-full items-center gap-3 rounded-xl border border-border/40 bg-background/30 px-4 py-3 text-right transition-colors hover:bg-accent/40"
                           >
                             <Folder className="size-5 shrink-0 text-amber-500" />
@@ -942,7 +967,7 @@ export default function CourseDetailPage() {
                             a.download = entry.name;
                             a.click();
                           }}
-                          onContextMenu={(e) => isAdmin && handleContextMenu(e, entry, false)}
+                          onContextMenu={(e) => canManageFtp && handleContextMenu(e, entry, false)}
                         >
                           {getFileIcon(entry.name)}
                           <span className="min-w-0 flex-1 truncate text-sm">{entry.name}</span>

@@ -18,12 +18,7 @@ import { useAuth } from "@/lib/auth-context";
 import { fetchUserActivities } from "@/lib/api";
 import { toast } from "sonner";
 
-const ROLE_MAP = {
-  SUPER_ADMIN: { label: "مدیر ارشد", icon: Shield, color: "text-rose-400" },
-  ADMIN: { label: "مدیر", icon: ShieldCheck, color: "text-amber-400" },
-  PROFESSOR: { label: "استاد", icon: GraduationCap, color: "text-emerald-400" },
-  STUDENT: { label: "دانشجو", icon: User, color: "text-sky-400" },
-};
+const ICON_MAP = { Shield, ShieldCheck, GraduationCap, User };
 
 function getInitials(name) {
   return name?.split(" ").map((w) => w[0]).join("").slice(0, 2) || "?";
@@ -41,6 +36,16 @@ export default function UserDetailPage() {
   const [passwordDialog, setPasswordDialog] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+  const [roleDefs, setRoleDefs] = useState([]);
+
+  useEffect(() => {
+    fetch("/api/proxy/permissions/role-definitions", {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+    })
+      .then((r) => r.json())
+      .then(setRoleDefs)
+      .catch(() => {});
+  }, []);
 
   const isAdmin = currentUser && ["SUPER_ADMIN", "ADMIN"].includes(currentUser.role);
 
@@ -73,7 +78,7 @@ export default function UserDetailPage() {
   const saveBadge = async () => {
     try {
       const res = await fetch(`/api/proxy/users/${id}`, {
-        method: "PATCH",
+        method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` },
         body: JSON.stringify({ badge: badgeValue || null }),
       });
@@ -94,7 +99,7 @@ export default function UserDetailPage() {
     setChangingPassword(true);
     try {
       const res = await fetch(`/api/proxy/users/${id}`, {
-        method: "PATCH",
+        method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` },
         body: JSON.stringify({ password: newPassword }),
       });
@@ -132,8 +137,10 @@ export default function UserDetailPage() {
     );
   }
 
-  const roleInfo = ROLE_MAP[user.role] || ROLE_MAP.STUDENT;
-  const RoleIcon = roleInfo.icon;
+  const roleDef = roleDefs.find((r) => r.slug === user.role);
+  const RoleIcon = roleDef ? (ICON_MAP[roleDef.icon] || User) : User;
+  const roleColor = roleDef?.color || "text-muted-foreground";
+  const roleLabel = roleDef?.label || user.role;
   const initials = getInitials(user.name);
   const isSelf = user.id === currentUser?.id;
 
@@ -169,8 +176,8 @@ export default function UserDetailPage() {
                 )}
               </div>
               <div className="mt-1 flex items-center gap-2 text-sm">
-                <RoleIcon className={`size-4 ${roleInfo.color}`} />
-                <span className={roleInfo.color}>{roleInfo.label}</span>
+                <RoleIcon className={`size-4 ${roleColor}`} />
+                <span className={roleColor}>{roleLabel}</span>
                 {isSelf && (
                   <span className="rounded-xl bg-primary/10 px-2 py-0.5 text-[11px] text-primary">شما</span>
                 )}

@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetch, uploadToFtp } from "@/lib/api";
 import { toast } from "sonner";
 import { File, Folder, Upload, Plus, Trash2, ChevronLeft, ArrowUp, Loader2, X } from "lucide-react";
+import { RequirePermission } from "@/components/RequirePermission";
 
 function formatBytes(bytes) {
   if (!bytes || bytes === 0) return "—";
@@ -125,6 +126,7 @@ export default function FtpPage() {
   };
 
   return (
+    <RequirePermission permissions={["ftp.view"]}>
     <div className="space-y-6 text-right">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -253,5 +255,6 @@ export default function FtpPage() {
         </CardContent>
       </Card>
     </div>
+    </RequirePermission>
   );
 }

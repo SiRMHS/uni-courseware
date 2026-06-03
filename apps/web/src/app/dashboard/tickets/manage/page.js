@@ -27,6 +27,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { RequirePermission } from "@/components/RequirePermission";
 
 const statusColors = {
   open: "text-amber-600 bg-amber-50 border-amber-200",
@@ -144,6 +145,7 @@ export default function TicketManagePage() {
   }
 
   return (
+    <RequirePermission permissions={["tickets.manage", "tickets.assign"]}>
     <div className="space-y-6" dir="rtl">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">مدیریت تیکت‌ها</h1>
@@ -325,5 +327,6 @@ export default function TicketManagePage() {
         </DialogContent>
       </Dialog>
     </div>
+    </RequirePermission>
   );
 }

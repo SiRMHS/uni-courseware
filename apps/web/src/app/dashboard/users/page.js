@@ -11,49 +11,41 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { fetchUsers, createUser, updateUser, deleteUser } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, Search, Shield, ShieldCheck, GraduationCap, User } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Shield, ShieldCheck, GraduationCap, User, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import { RequirePermission } from "@/components/RequirePermission";
 
-const ROLE_OPTIONS = [
-  { value: "SUPER_ADMIN", label: "مدیر ارشد" },
-  { value: "ADMIN", label: "مدیر" },
-  { value: "PROFESSOR", label: "استاد" },
-  { value: "STUDENT", label: "دانشجو" },
-];
-
-function getRoleIcon(role) {
-  switch (role) {
-    case "SUPER_ADMIN": return Shield;
-    case "ADMIN": return ShieldCheck;
-    case "PROFESSOR": return GraduationCap;
-    default: return User;
-  }
-}
+const ICON_MAP = { Shield, ShieldCheck, GraduationCap, User };
 
 function getInitials(name) {
   return name?.split(" ").map((w) => w[0]).join("").slice(0, 2) || "?";
 }
 
-const roleColors = {
-  SUPER_ADMIN: "text-rose-400",
-  ADMIN: "text-amber-400",
-  PROFESSOR: "text-emerald-400",
-  STUDENT: "text-sky-400",
-};
-
 export default function UsersPage() {
   const { user: currentUser } = useAuth();
   const router = useRouter();
-  const isAdmin = currentUser && ["SUPER_ADMIN", "ADMIN"].includes(currentUser.role);
-  useEffect(() => {
-    if (currentUser && !isAdmin) router.push("/dashboard");
-  }, [currentUser, isAdmin, router]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "STUDENT" });
+  const [form, setForm] = useState({ name: "", username: "", email: "", password: "", role: "STUDENT" });
+  const [roleDefs, setRoleDefs] = useState([]);
+
+  useEffect(() => {
+    fetch("/api/proxy/permissions/role-definitions", {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+    })
+      .then((r) => r.json())
+      .then(setRoleDefs)
+      .catch(() => {});
+  }, []);
+
+  const getRoleDef = (slug) => roleDefs.find((r) => r.slug === slug);
+  const getRoleIcon = (slug) => {
+    const def = getRoleDef(slug);
+    return ICON_MAP[def?.icon] || User;
+  };
 
   const loadUsers = useCallback(async () => {
     try {
@@ -72,13 +64,13 @@ export default function UsersPage() {
 
   const openCreate = () => {
     setEditingUser(null);
-    setForm({ name: "", email: "", password: "", role: "STUDENT" });
+    setForm({ name: "", username: "", email: "", password: "", role: "STUDENT" });
     setDialogOpen(true);
   };
 
   const openEdit = (user) => {
     setEditingUser(user);
-    setForm({ name: user.name, email: user.email, password: "", role: user.role });
+    setForm({ name: user.name, username: user.username || "", email: user.email || "", password: "", role: user.role });
     setDialogOpen(true);
   };
 
@@ -86,7 +78,8 @@ export default function UsersPage() {
     e.preventDefault();
     try {
       if (editingUser) {
-        const data = { name: form.name, email: form.email, role: form.role };
+        const data = { name: form.name, email: form.email || null, role: form.role };
+        if (form.username) data.username = form.username;
         if (form.password) data.password = form.password;
         await updateUser(editingUser.id, data);
         toast.success("کاربر بروزرسانی شد");
@@ -115,10 +108,12 @@ export default function UsersPage() {
   const filtered = users.filter(
     (u) =>
       u.name.includes(search) ||
-      u.email.includes(search)
+      (u.username || "").includes(search) ||
+      (u.email || "").includes(search)
   );
 
   return (
+    <RequirePermission permissions={["users.view", "users.create", "users.edit"]}>
     <div className="space-y-6">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -161,7 +156,8 @@ export default function UsersPage() {
                 key={user.id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-4 rounded-xl border border-border/60 bg-card/50 px-4 py-3 transition-colors hover:bg-card/80"
+                className="flex cursor-pointer items-center gap-4 rounded-xl border border-border/60 bg-card/50 px-4 py-3 transition-colors hover:bg-card/80"
+                onClick={() => router.push(`/dashboard/users/${user.id}`)}
               >
                 <Avatar className="size-10">
                   {user.image ? <AvatarImage src={user.image} alt={user.name} /> : null}
@@ -174,18 +170,18 @@ export default function UsersPage() {
                   <p className="truncate text-xs text-muted-foreground" dir="ltr">{user.email}</p>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <RoleIcon className={`size-4 ${roleColors[user.role]}`} />
-                  <span>{ROLE_OPTIONS.find((r) => r.value === user.role)?.label}</span>
+                  <RoleIcon className={`size-4 ${getRoleDef(user.role)?.color || "text-muted-foreground"}`} />
+                  <span>{getRoleDef(user.role)?.label || user.role}</span>
                 </div>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="size-8 rounded-xl" onClick={() => openEdit(user)}>
+                  <Button variant="ghost" size="icon" className="size-8 rounded-xl" onClick={(e) => { e.stopPropagation(); openEdit(user); }}>
                     <Pencil className="size-3.5" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
                     className="size-8 rounded-xl text-destructive hover:text-destructive"
-                    onClick={() => handleDelete(user)}
+                    onClick={(e) => { e.stopPropagation(); handleDelete(user); }}
                     disabled={user.id === currentUser?.id}
                   >
                     <Trash2 className="size-3.5" />
@@ -216,6 +212,16 @@ export default function UsersPage() {
               />
             </div>
             <div className="space-y-2">
+              <label className="text-sm font-medium">نام کاربری</label>
+              <Input
+                value={form.username}
+                onChange={(e) => setForm({ ...form, username: e.target.value })}
+                className="h-11 rounded-xl"
+                dir="ltr"
+                placeholder="اختیاری"
+              />
+            </div>
+            <div className="space-y-2">
               <label className="text-sm font-medium">ایمیل</label>
               <Input
                 type="email"
@@ -223,7 +229,7 @@ export default function UsersPage() {
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 className="h-11 rounded-xl"
                 dir="ltr"
-                required
+                placeholder="اختیاری"
               />
             </div>
             <div className="space-y-2">
@@ -238,15 +244,29 @@ export default function UsersPage() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">نقش</label>
-              <select
-                value={form.role}
-                onChange={(e) => setForm({ ...form, role: e.target.value })}
-                className="flex h-11 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {ROLE_OPTIONS.map((r) => (
-                  <option key={r.value} value={r.value}>{r.label}</option>
-                ))}
-              </select>
+              <div className="flex flex-wrap gap-2">
+                {(roleDefs.length > 0 ? roleDefs : [
+                  { slug: "SUPER_ADMIN", label: "مدیر ارشد", icon: "Shield", color: "text-rose-400" },
+                  { slug: "ADMIN", label: "مدیر", icon: "ShieldCheck", color: "text-amber-400" },
+                  { slug: "PROFESSOR", label: "استاد", icon: "GraduationCap", color: "text-emerald-400" },
+                  { slug: "STUDENT", label: "دانشجو", icon: "User", color: "text-sky-400" },
+                ]).map((r) => {
+                  const Icon = ICON_MAP[r.icon] || User;
+                  return (
+                    <button
+                      key={r.slug}
+                      type="button"
+                      onClick={() => setForm({ ...form, role: r.slug })}
+                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-all ${
+                        form.role === r.slug ? "border-primary/50 bg-primary/10 text-primary" : "border-border/40 hover:bg-accent"
+                      }`}
+                    >
+                      <Icon className={`size-4 ${r.color}`} />
+                      {r.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" type="button" onClick={() => setDialogOpen(false)}>انصراف</Button>
@@ -256,5 +276,6 @@ export default function UsersPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </RequirePermission>
   );
 }

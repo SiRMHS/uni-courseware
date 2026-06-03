@@ -9,24 +9,26 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fetchAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { usePermissions } from "@/lib/usePermissions";
 import { useRouter } from "next/navigation";
 import { Plus, Pencil, Trash2, Eye, EyeOff, Megaphone } from "lucide-react";
 import { toast } from "sonner";
 import TipTapEditor from "@/components/TipTapEditor";
+import { RequirePermission } from "@/components/RequirePermission";
 
 export default function AnnouncementsPage() {
   const { user } = useAuth();
   const router = useRouter();
+  const { perms } = usePermissions();
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ title: "", body: "", published: false });
 
-  const isSuperAdmin = user?.role === "SUPER_ADMIN";
-  useEffect(() => {
-    if (user && !isSuperAdmin) router.push("/dashboard");
-  }, [user, isSuperAdmin, router]);
+  const canCreate = perms.includes("announcements.create");
+  const canEdit = perms.includes("announcements.edit");
+  const canDelete = perms.includes("announcements.delete");
 
   const load = useCallback(async () => {
     try {
@@ -82,16 +84,19 @@ export default function AnnouncementsPage() {
   };
 
   return (
+    <RequirePermission permissions={["announcements.create", "announcements.edit", "announcements.delete", "announcements.view"]}>
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">مدیریت اعلامیه‌ها</h1>
           <p className="mt-1 text-sm text-muted-foreground">ایجاد و مدیریت اعلامیه‌های سامانه</p>
         </div>
-        <Button onClick={openCreate} className="flex-row-reverse gap-2 rounded-xl">
-          <Plus className="size-4" />
-          اعلامیه جدید
-        </Button>
+        {canCreate && (
+          <Button onClick={openCreate} className="flex-row-reverse gap-2 rounded-xl">
+            <Plus className="size-4" />
+            اعلامیه جدید
+          </Button>
+        )}
       </div>
 
       {loading ? (
@@ -129,15 +134,21 @@ export default function AnnouncementsPage() {
                 </p>
               </div>
               <div className="flex shrink-0 gap-1">
-                <Button variant="ghost" size="icon" className="size-8 rounded-xl" onClick={() => togglePublish(a)} title={a.published ? "مخفی کردن" : "انتشار"}>
-                  {a.published ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-                </Button>
-                <Button variant="ghost" size="icon" className="size-8 rounded-xl" onClick={() => openEdit(a)}>
-                  <Pencil className="size-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="size-8 rounded-xl text-destructive" onClick={() => handleDelete(a)}>
-                  <Trash2 className="size-3.5" />
-                </Button>
+                {canEdit && (
+                  <Button variant="ghost" size="icon" className="size-8 rounded-xl" onClick={() => togglePublish(a)} title={a.published ? "مخفی کردن" : "انتشار"}>
+                    {a.published ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                  </Button>
+                )}
+                {canEdit && (
+                  <Button variant="ghost" size="icon" className="size-8 rounded-xl" onClick={() => openEdit(a)}>
+                    <Pencil className="size-3.5" />
+                  </Button>
+                )}
+                {canDelete && (
+                  <Button variant="ghost" size="icon" className="size-8 rounded-xl text-destructive" onClick={() => handleDelete(a)}>
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                )}
               </div>
             </motion.div>
           ))}
@@ -168,5 +179,7 @@ export default function AnnouncementsPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </RequirePermission>
   );
 }
+

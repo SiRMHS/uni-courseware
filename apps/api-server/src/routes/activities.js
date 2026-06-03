@@ -43,4 +43,55 @@ router.get("/me", authenticate, async (req, res) => {
   }
 });
 
+router.get("/all", authenticate, requireRole("SUPER_ADMIN"), async (req, res) => {
+  try {
+    const { search, action: actionFilter, startDate, endDate, page = "1", limit = "20" } = req.query;
+    const skip = (Math.max(1, parseInt(page)) - 1) * parseInt(limit);
+
+    const where = {};
+    if (search) {
+      where.user = { OR: [{ name: { contains: search, mode: "insensitive" } }, { username: { contains: search, mode: "insensitive" } }] };
+    }
+    if (actionFilter) {
+      where.action = actionFilter;
+    }
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) where.createdAt.gte = new Date(startDate);
+      if (endDate) where.createdAt.lte = new Date(endDate);
+    }
+
+    const [total, activities] = await Promise.all([
+      prisma.userActivity.count({ where }),
+      prisma.userActivity.findMany({
+        where,
+        include: { user: { select: { id: true, name: true, username: true, avatar: true } } },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: Math.min(parseInt(limit), 100),
+      }),
+    ]);
+
+    const stats = await prisma.userActivity.groupBy({
+      by: ["action"],
+      _count: true,
+      orderBy: { _count: { action: "desc" } },
+    });
+
+    const totalUsers = await prisma.userActivity.groupBy({
+      by: ["userId"],
+      _count: { userId: true },
+    });
+
+    res.json({
+      activities,
+      pagination: { total, page: parseInt(page), limit: parseInt(limit), totalPages: Math.ceil(total / parseInt(limit)) },
+      stats: stats.map((s) => ({ action: s.action, count: s._count })),
+      activeUsers: totalUsers.length,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

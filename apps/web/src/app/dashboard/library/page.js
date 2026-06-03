@@ -60,7 +60,7 @@ export default function LibraryPage() {
       </motion.div>
 
       {loading ? (
-        <div className="grid gap-5 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-5 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="space-y-3">
               <Skeleton className="aspect-[3/4] w-full rounded-2xl" />
@@ -76,7 +76,7 @@ export default function LibraryPage() {
           <p className="mt-1 text-sm">جستجوی خود را تغییر دهید</p>
         </div>
       ) : (
-        <div className="grid gap-5 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-5 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {filtered.map((book) => (
             <Link key={book.id} href={`/dashboard/library/${book.slug}`}>
               <motion.div
