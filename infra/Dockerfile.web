@@ -9,7 +9,7 @@ RUN apk add --no-cache openssl ca-certificates
 # ۱. کپی کردن فایل‌های ریشه مونو-ریپو
 COPY package.json package-lock.json turbo.json ./
 
-# ۲. کپی کردن پکیج‌جیسون‌ها برای تحلیل ورک‌اسپیس
+# ۲. کپی کردن پکیج‌جیسون‌ها برای تحلیل درست ورک‌اسپیس‌ها
 COPY apps/api-server/package.json ./apps/api-server/package.json
 COPY apps/web/package.json ./apps/web/package.json
 COPY packages/database/package.json ./packages/database/package.json
@@ -17,20 +17,20 @@ COPY packages/database/package.json ./packages/database/package.json
 # ۳. کپی کردن پکیج‌های داخلی مشترک
 COPY packages/ ./packages/
 
-# ۴. نصب پکیج‌ها با اینترنت آزاد گیت‌هاب
+# ۴. نصب پکیج‌ها با ترافیک آزاد گیت‌هاب
 RUN npm config set legacy-peer-deps true
 RUN npm install --include=dev --force --verbose
 
-# ۵. تولید کلاینت پریزما (فایل‌های باینری در node_modules/.prisma ساخته می‌شوند)
+# ۵. تولید کلاینت پریزما
 RUN npm run db:generate
 
-# ۶. کپی سورس کدهای وب و بیلد پکیج مستقل
+# ۶. کپی سورس کدهای وب و بیلد مستقل (Standalone)
 COPY apps/web/ ./apps/web/
 ENV NEXT_PUBLIC_API_URL=http://api:4000
 RUN npx turbo run build --filter=@uni/web
 
 # ========================================================
-# Stage 2: Runner (کاملاً ایزوله، پکیج‌شده و فیکس شده)
+# Stage 2: Runner (پکیج مستقل، فوق‌العاده سبک و آفلاین)
 # ========================================================
 FROM node:20-alpine AS runner
 WORKDIR /app
@@ -41,20 +41,16 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# ۱. کپی کردن خروجی تمیز مستقل (ساختار ورک‌اسپیس کاملاً حفظ می‌شود)
+# ۱. کپی کردن خروجی مستقل (خودش شامل کلاینت پریزما و ماژول‌های مورد نیاز است)
 COPY --from=builder /app/apps/web/.next/standalone ./
 
-# ۲. کپی کردن فایل‌های استاتیک و پابلیک در پوشه لوکالِ وب‌اپلیکیشن
+# ۲. کپی کردن فایل‌های استاتیک و پابلیک در ساختار ورک‌اسپیس وب
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/apps/web/public ./apps/web/public
-
-# ۳. 👈 گام طلایی: کپی کردن کلاینت تولید شده پریزما از ریشه بیلد به ریشه رانر
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
 EXPOSE 3000
 
 ENV NEXT_PUBLIC_API_URL=http://api:4000
 
-# ۴. اجرای رسمی کانتینر با پکیج فشرده‌شده
+# اجرای پکیج بدون نیاز به لود کردن کل دپندنسی‌های ریشه
 CMD ["node", "apps/web/server.js"]
