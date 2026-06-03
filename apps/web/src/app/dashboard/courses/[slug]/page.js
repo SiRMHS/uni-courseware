@@ -190,12 +190,12 @@ export default function CourseDetailPage() {
   }, []);
 
   const openFolder = async (name) => {
-    setFolderLoading(true);
     const base = folderPath || ftpPath;
     const fullPath = `${base.replace(/\/$/, "")}/${name}`;
+    setFolderPath(fullPath);
+    setFolderLoading(true);
     try {
       const entries = await fetchFtpFolders(fullPath);
-      setFolderPath(fullPath);
       setFolderEntries(entries);
     } catch { setFolderEntries([]); }
     finally { setFolderLoading(false); }

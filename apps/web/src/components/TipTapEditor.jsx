@@ -49,20 +49,6 @@ export default function TipTapEditor({ content, onChange, placeholder = "متن 
     },
   });
 
-  if (!editor) return null;
-
-  const toggle = (fn) => fn().run();
-
-  const toggleSource = () => {
-    if (showSource) {
-      editor.commands.setContent(htmlSource || "");
-      onChange?.(htmlSource || "");
-    } else {
-      setHtmlSource(editor.getHTML());
-    }
-    setShowSource(!showSource);
-  };
-
   const handleImageFile = useCallback(async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -110,6 +96,20 @@ export default function TipTapEditor({ content, onChange, placeholder = "متن 
   const cancelUpload = useCallback(() => {
     abortRef.current?.abort();
   }, []);
+
+  if (!editor) return null;
+
+  const toggle = (fn) => fn().run();
+
+  const toggleSource = () => {
+    if (showSource) {
+      editor.commands.setContent(htmlSource || "");
+      onChange?.(htmlSource || "");
+    } else {
+      setHtmlSource(editor.getHTML());
+    }
+    setShowSource(!showSource);
+  };
 
   return (
     <div className="space-y-2">

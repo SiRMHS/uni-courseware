@@ -42,4 +42,4 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/web:latest
+            ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/web:1.2
